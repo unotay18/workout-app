@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const startingWeight = 205;
-const goalWeight = 185;
+const defaultStartingWeight = 205;
+const defaultGoalWeight = 185;
 
 const days = [
   {
@@ -122,13 +122,19 @@ function formatTime(seconds) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function readTextStorage(key, fallback) {
+  return localStorage.getItem(key) || fallback;
+}
+
 export default function CalisthenicsWorkoutApp() {
   const dayKeys = days.map((day) => day.day);
   const [selectedDay, setSelectedDay] = useState(days[0].day);
   const [completed, setCompleted] = useState(() => readStorage("workout-completed", {}));
-  const [weight, setWeight] = useState(() => localStorage.getItem("current-weight") || String(startingWeight));
+  const [startingWeight, setStartingWeight] = useState(() => readTextStorage("starting-weight", String(defaultStartingWeight)));
+  const [goalWeight, setGoalWeight] = useState(() => readTextStorage("goal-weight", String(defaultGoalWeight)));
+  const [weight, setWeight] = useState(() => readTextStorage("current-weight", String(defaultStartingWeight)));
   const [weightLog, setWeightLog] = useState(() =>
-    readStorage("weight-log", [{ date: new Date().toLocaleDateString(), weight: String(startingWeight) }]),
+    readStorage("weight-log", [{ date: new Date().toLocaleDateString(), weight: String(defaultStartingWeight) }]),
   );
   const [timerSeconds, setTimerSeconds] = useState(60);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -137,6 +143,14 @@ export default function CalisthenicsWorkoutApp() {
   useEffect(() => {
     localStorage.setItem("workout-completed", JSON.stringify(completed));
   }, [completed]);
+
+  useEffect(() => {
+    localStorage.setItem("starting-weight", startingWeight);
+  }, [startingWeight]);
+
+  useEffect(() => {
+    localStorage.setItem("goal-weight", goalWeight);
+  }, [goalWeight]);
 
   useEffect(() => {
     localStorage.setItem("current-weight", weight);
@@ -167,9 +181,11 @@ export default function CalisthenicsWorkoutApp() {
   const activeDay = days.find((day) => day.day === selectedDay) || days[0];
   const completionCount = dayKeys.filter((key) => completed[key]).length;
   const workoutProgress = Math.round((completionCount / days.length) * 100);
-  const currentWeight = Number(weight) || startingWeight;
-  const poundsLost = Math.max(0, startingWeight - currentWeight);
-  const poundsRemaining = Math.max(0, currentWeight - goalWeight);
+  const startWeightValue = Number(startingWeight) || defaultStartingWeight;
+  const goalWeightValue = Number(goalWeight) || defaultGoalWeight;
+  const currentWeight = Number(weight) || startWeightValue;
+  const poundsLost = Math.max(0, startWeightValue - currentWeight);
+  const poundsRemaining = Math.max(0, currentWeight - goalWeightValue);
   const timerProgress = timerSeconds > 0 ? Math.round(((timerSeconds - timeLeft) / timerSeconds) * 100) : 0;
   const timerStatus = timeLeft === 0 ? "Done" : running ? "Running" : timeLeft === timerSeconds ? "Ready" : "Paused";
 
@@ -187,8 +203,10 @@ export default function CalisthenicsWorkoutApp() {
   };
 
   const clearWeightLog = () => {
-    setWeight(String(startingWeight));
-    setWeightLog([{ date: new Date().toLocaleDateString(), weight: String(startingWeight) }]);
+    setStartingWeight(String(defaultStartingWeight));
+    setGoalWeight(String(defaultGoalWeight));
+    setWeight(String(defaultStartingWeight));
+    setWeightLog([{ date: new Date().toLocaleDateString(), weight: String(defaultStartingWeight) }]);
   };
 
   const resetTimer = () => {
@@ -230,7 +248,7 @@ export default function CalisthenicsWorkoutApp() {
       <section className="stats-grid" aria-label="Plan stats">
         <div className="stat-tile">
           <span>Goal</span>
-          <strong>{startingWeight} to {goalWeight} lbs</strong>
+          <strong>{startWeightValue} to {goalWeightValue} lbs</strong>
         </div>
         <div className="stat-tile">
           <span>Current</span>
@@ -306,19 +324,50 @@ export default function CalisthenicsWorkoutApp() {
           </div>
 
           <div className="weight-form">
-            <label htmlFor="weight">Current weight</label>
-            <div>
-              <input
-                id="weight"
-                inputMode="decimal"
-                min="0"
-                onChange={(event) => setWeight(event.target.value)}
-                placeholder="Enter weight"
-                type="number"
-                value={weight}
-              />
+            <div className="weight-input-grid">
+              <label htmlFor="starting-weight">
+                Starting
+                <input
+                  id="starting-weight"
+                  inputMode="decimal"
+                  min="0"
+                  onChange={(event) => setStartingWeight(event.target.value)}
+                  placeholder="205"
+                  type="number"
+                  value={startingWeight}
+                />
+              </label>
+
+              <label htmlFor="weight">
+                Current
+                <input
+                  id="weight"
+                  inputMode="decimal"
+                  min="0"
+                  onChange={(event) => setWeight(event.target.value)}
+                  placeholder="Enter weight"
+                  type="number"
+                  value={weight}
+                />
+              </label>
+
+              <label htmlFor="goal-weight">
+                Goal
+                <input
+                  id="goal-weight"
+                  inputMode="decimal"
+                  min="0"
+                  onChange={(event) => setGoalWeight(event.target.value)}
+                  placeholder="185"
+                  type="number"
+                  value={goalWeight}
+                />
+              </label>
+            </div>
+
+            <div className="weight-actions">
               <button className="primary-button" onClick={saveWeightEntry} type="button">
-                Save
+                Save current weight
               </button>
             </div>
           </div>

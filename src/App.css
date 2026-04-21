@@ -301,18 +301,28 @@ h3 {
 }
 
 .weight-form label {
-  display: block;
-  margin-bottom: 8px;
+  display: grid;
+  gap: 8px;
   color: #5b6b83;
   font-size: 0.88rem;
   font-weight: 800;
 }
 
-.weight-form div,
+.weight-input-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weight-actions,
 .button-row,
 .timer-options {
   display: flex;
   gap: 10px;
+}
+
+.weight-actions {
+  margin-top: 12px;
 }
 
 .weight-form input {
@@ -524,11 +534,12 @@ h3 {
   }
 
   .day-tabs,
-  .stats-grid {
+  .stats-grid,
+  .weight-input-grid {
     grid-template-columns: 1fr;
   }
 
-  .weight-form div,
+  .weight-actions,
   .button-row {
     flex-direction: column;
   }
