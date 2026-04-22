@@ -71,7 +71,7 @@ h3 {
   flex-direction: column;
   justify-content: space-between;
   gap: 24px;
-  min-height: 190px;
+  min-height: 230px;
   padding: 24px;
   border-radius: 18px;
   background: #172033;
@@ -109,6 +109,49 @@ h3 {
   border-radius: inherit;
   background: #4ade80;
   transition: width 240ms ease;
+}
+
+.week-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.week-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.week-picker span {
+  color: #b7c2d1;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.week-picker select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-weight: 800;
+}
+
+.week-picker select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.14);
+}
+
+.week-picker option {
+  color: #111827;
+}
+
+.week-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .stats-grid,

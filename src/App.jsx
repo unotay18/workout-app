@@ -3,6 +3,7 @@ import "./App.css";
 
 const defaultStartingWeight = 205;
 const defaultGoalWeight = 185;
+const planWeeks = 8;
 
 const days = [
   {
@@ -118,6 +119,35 @@ function readStorage(key, fallback) {
   }
 }
 
+function normalizeWeeks(weeks) {
+  if (!Array.isArray(weeks) || weeks.length === 0) return null;
+
+  const now = new Date().toISOString();
+  return weeks.map((week, index) => {
+    const number = Number(week?.number) || index + 1;
+    const startedAt = typeof week?.startedAt === "string" ? week.startedAt : now;
+    const completed = typeof week?.completed === "object" && week.completed ? week.completed : {};
+    const id = typeof week?.id === "string" ? week.id : `week-${number}-${startedAt}`;
+
+    return {
+      id,
+      number,
+      startedAt,
+      completed,
+    };
+  });
+}
+
+function createWeek(number, completed = {}) {
+  const startedAt = new Date().toISOString();
+  return {
+    id: `week-${number}-${startedAt}`,
+    number,
+    startedAt,
+    completed,
+  };
+}
+
 function formatTime(seconds) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
@@ -129,7 +159,17 @@ function readTextStorage(key, fallback) {
 export default function CalisthenicsWorkoutApp() {
   const dayKeys = days.map((day) => day.day);
   const [selectedDay, setSelectedDay] = useState(days[0].day);
-  const [completed, setCompleted] = useState(() => readStorage("workout-completed", {}));
+  const [weeks, setWeeks] = useState(() => {
+    const savedWeeks = normalizeWeeks(readStorage("workout-weeks", null));
+    if (savedWeeks) return savedWeeks;
+
+    const legacyCompleted = readStorage("workout-completed", {});
+    return [createWeek(1, legacyCompleted)];
+  });
+  const [currentWeekIndex, setCurrentWeekIndex] = useState(() => {
+    const savedIndex = readStorage("workout-current-week", 0);
+    return typeof savedIndex === "number" && Number.isFinite(savedIndex) ? savedIndex : 0;
+  });
   const [startingWeight, setStartingWeight] = useState(() => readTextStorage("starting-weight", String(defaultStartingWeight)));
   const [goalWeight, setGoalWeight] = useState(() => readTextStorage("goal-weight", String(defaultGoalWeight)));
   const [weight, setWeight] = useState(() => readTextStorage("current-weight", String(defaultStartingWeight)));
@@ -141,8 +181,18 @@ export default function CalisthenicsWorkoutApp() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem("workout-completed", JSON.stringify(completed));
-  }, [completed]);
+    localStorage.setItem("workout-weeks", JSON.stringify(weeks));
+  }, [weeks]);
+
+  useEffect(() => {
+    const safeIndex = Math.min(Math.max(0, currentWeekIndex), Math.max(0, weeks.length - 1));
+    if (safeIndex !== currentWeekIndex) {
+      setCurrentWeekIndex(safeIndex);
+      return;
+    }
+
+    localStorage.setItem("workout-current-week", JSON.stringify(safeIndex));
+  }, [currentWeekIndex, weeks.length]);
 
   useEffect(() => {
     localStorage.setItem("starting-weight", startingWeight);
@@ -178,6 +228,14 @@ export default function CalisthenicsWorkoutApp() {
     return () => clearInterval(interval);
   }, [running]);
 
+  const currentWeek = weeks[currentWeekIndex] || weeks[0];
+  const completed = currentWeek?.completed || {};
+  const currentWeekNumber = Number(currentWeek?.number) || currentWeekIndex + 1;
+
+  useEffect(() => {
+    localStorage.setItem("workout-completed", JSON.stringify(completed));
+  }, [completed]);
+
   const activeDay = days.find((day) => day.day === selectedDay) || days[0];
   const completionCount = dayKeys.filter((key) => completed[key]).length;
   const workoutProgress = Math.round((completionCount / days.length) * 100);
@@ -190,7 +248,16 @@ export default function CalisthenicsWorkoutApp() {
   const timerStatus = timeLeft === 0 ? "Done" : running ? "Running" : timeLeft === timerSeconds ? "Ready" : "Paused";
 
   const toggleDay = (day) => {
-    setCompleted((prev) => ({ ...prev, [day]: !prev[day] }));
+    setWeeks((prev) =>
+      prev.map((week, index) => {
+        if (index !== currentWeekIndex) return week;
+        const weekCompleted = week.completed || {};
+        return {
+          ...week,
+          completed: { ...weekCompleted, [day]: !weekCompleted[day] },
+        };
+      }),
+    );
   };
 
   const saveWeightEntry = () => {
@@ -199,7 +266,22 @@ export default function CalisthenicsWorkoutApp() {
   };
 
   const resetWeek = () => {
-    setCompleted({});
+    setWeeks((prev) =>
+      prev.map((week, index) => {
+        if (index !== currentWeekIndex) return week;
+        return { ...week, completed: {} };
+      }),
+    );
+  };
+
+  const startNextWeek = () => {
+    setWeeks((prev) => {
+      const lastNumber = prev.reduce((max, week) => Math.max(max, Number(week?.number) || 0), 0) || prev.length;
+      const nextWeek = createWeek(lastNumber + 1, {});
+      const nextWeeks = [...prev, nextWeek];
+      setCurrentWeekIndex(nextWeeks.length - 1);
+      return nextWeeks;
+    });
   };
 
   const clearWeightLog = () => {
@@ -231,17 +313,49 @@ export default function CalisthenicsWorkoutApp() {
           </p>
         </div>
 
-        <div className="progress-card" aria-label={`${workoutProgress}% of weekly workouts completed`}>
+        <div className="progress-card" aria-label={`${workoutProgress}% of Week ${currentWeekNumber} workouts completed`}>
           <div className="progress-card__top">
-            <span>Weekly progress</span>
+            <span>
+              Week {currentWeekNumber}
+              {currentWeekNumber <= planWeeks ? ` of ${planWeeks}` : ""}
+            </span>
             <strong>{completionCount}/5</strong>
           </div>
           <div className="progress-bar">
             <span style={{ width: `${workoutProgress}%` }} />
           </div>
-          <button className="ghost-button" type="button" onClick={resetWeek}>
-            Reset week
-          </button>
+
+          <div className="week-controls">
+            <label className="week-picker">
+              <span>Current week</span>
+              <select onChange={(event) => setCurrentWeekIndex(Number(event.target.value))} value={currentWeekIndex}>
+                {weeks.map((week, index) => {
+                  const weekNumber = Number(week?.number) || index + 1;
+                  let dateLabel = "";
+                  if (typeof week?.startedAt === "string") {
+                    const parsed = Date.parse(week.startedAt);
+                    if (!Number.isNaN(parsed)) {
+                      dateLabel = new Date(parsed).toLocaleDateString();
+                    }
+                  }
+                  return (
+                    <option key={week.id ?? `${weekNumber}-${index}`} value={index}>
+                      Week {weekNumber}{dateLabel ? ` · ${dateLabel}` : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+
+            <div className="week-actions">
+              <button className="ghost-button" type="button" onClick={startNextWeek}>
+                Start next week
+              </button>
+              <button className="ghost-button" type="button" onClick={resetWeek}>
+                Reset this week
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
